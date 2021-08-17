@@ -1,0 +1,361 @@
+service: sls-liquidacion
+
+plugins:
+  - serverless-plugin-include-dependencies  # EVITAR SUBIR DEPENDENCIAS INESESARIAS
+  - serverless-api-gateway-caching          # HABLITAR GESTION DE CACHÉ EN EL API-GATEWAY
+  - serverless-offline                      # HABILITA DESPLIEGUE LOCAL.
+  - serverless-s3-local                     # CREAR LOS BUCKET LOCALES.
+
+custom:
+  apiGatewayCaching:                        # DESABILITA EL CACHÉ DE FORMA GLOBAL AL CONSULTAR EL ENDPOINT (DE TODAS FORMAS ES NECESARIO INDICARLOS EN CADA ENDPOINT)
+    enabled: false
+  s3:                                       # SERVERLESS-S3-LOCAL CONFIGURACION
+    host: ${file(./config/config.${self:provider.stage}.json):BUCKET_S3_LOCAL.CONFIG.ENDPOINT}
+    port: ${file(./config/config.${self:provider.stage}.json):BUCKET_S3_LOCAL.CONFIG.PORT}
+    directory: ${file(./config/config.${self:provider.stage}.json):BUCKET_S3_LOCAL.CONFIG.DIRECTORY}
+    # cors: false
+    # noStart: true
+  v_login: "v1"  
+  v_get_initial_pending_liquidation_report: "v2"
+  v_get_initial_without_category_report: "v2"
+  v_get_initial_update_international_sales: "v2"
+  v_format_document: "v1"
+  v_update_excel: "v1"
+  v_update_folios: "v1"
+  v_get_final_pending_liquidation_report: "v2"
+  v_get_final_sellers_report: "v2"
+  v_get_final_sales_report: "v2"
+  v_update_sku: "v1"
+  v_add_folio: "v1"
+  v_cancel_folio: "v1"
+  v_negative_folio: "v1"
+  v_create_script: "v1"
+
+frameworkVersion: '2'
+
+provider:
+  name: aws
+  runtime: nodejs12.x
+  apiGateway: 
+    shouldStartNameWithService: true
+  lambdaHashingVersion: 20201221
+  profile: super-usuario
+  stage: prod
+  region: us-west-2
+
+  # VARIABLES DE ENTORNO.
+  environment:
+
+    PROJECT_NAME: ${file(./config/config.${self:provider.stage}.json):PROJECT_NAME}
+
+    SEED_TOKEN: ${file(./config/config.${self:provider.stage}.json):SEED_TOKEN}
+    EXPIRE_TOKEN: ${file(./config/config.${self:provider.stage}.json):SEED_EXPIRE}
+
+    DB_HOST_FINANCES: ${file(./config/config.${self:provider.stage}.json):BD_FINANCES.HOST_DB}
+    DB_NAME_FINANCES: ${file(./config/config.${self:provider.stage}.json):BD_FINANCES.NAME_DB}
+    DB_USUARIO_FINANCES: ${file(./config/config.${self:provider.stage}.json):BD_FINANCES.USUARIO_DB}
+    DB_PASS_FINANCES: ${file(./config/config.${self:provider.stage}.json):BD_FINANCES.PASS_DB}
+    DB_ENCRYPT_FINANCES: ${file(./config/config.${self:provider.stage}.json):BD_FINANCES.ENCRYPT}
+    DB_ENABLEARITHABORT_FINANCES: ${file(./config/config.${self:provider.stage}.json):BD_FINANCES.ENABLEARITHABORT}
+
+    DB_HOST_USER: ${file(./config/config.${self:provider.stage}.json):BD_USUARIOS.HOST_DB}
+    DB_NAME_USER: ${file(./config/config.${self:provider.stage}.json):BD_USUARIOS.NAME_DB}
+    DB_USUARIO_USER: ${file(./config/config.${self:provider.stage}.json):BD_USUARIOS.USUARIO_DB}
+    DB_PASS_USER: ${file(./config/config.${self:provider.stage}.json):BD_USUARIOS.PASS_DB}
+    DB_ENCRYPT_USER: ${file(./config/config.${self:provider.stage}.json):BD_USUARIOS.ENCRYPT}
+    DB_ENABLEARITHABORT_USER: ${file(./config/config.${self:provider.stage}.json):BD_USUARIOS.ENABLEARITHABORT}
+
+    DB_HOST_PRODUCT: ${file(./config/config.${self:provider.stage}.json):BD_PRODUCTOS.HOST_DB}
+    DB_NAME_PRODUCT: ${file(./config/config.${self:provider.stage}.json):BD_PRODUCTOS.NAME_DB}
+    DB_USUARIO_PRODUCT: ${file(./config/config.${self:provider.stage}.json):BD_PRODUCTOS.USUARIO_DB}
+    DB_PASS_PRODUCT: ${file(./config/config.${self:provider.stage}.json):BD_PRODUCTOS.PASS_DB}
+    DB_ENCRYPT_PRODUCT: ${file(./config/config.${self:provider.stage}.json):BD_PRODUCTOS.ENCRYPT}
+    DB_ENABLEARITHABORT_PRODUCT: ${file(./config/config.${self:provider.stage}.json):BD_PRODUCTOS.ENABLEARITHABORT}
+
+    DB_HOST_1_ORDERS: ${file(./config/config.${self:provider.stage}.json):BD_ORDERS.CONEXTION_1.HOST}
+    DB_USER_1_ORDERS: ${file(./config/config.${self:provider.stage}.json):BD_ORDERS.CONEXTION_1.USER}
+
+    DB_HOST_2_ORDERS: ${file(./config/config.${self:provider.stage}.json):BD_ORDERS.CONEXTION_2.HOST}
+    DB_USER_2_ORDERS: ${file(./config/config.${self:provider.stage}.json):BD_ORDERS.CONEXTION_2.USER}
+
+    EMAIL_CONFIG_HOST: ${file(./config/config.${self:provider.stage}.json):EMAIL.CONFIG.HOST}
+    EMAIL_CONFIG_PORT: ${file(./config/config.${self:provider.stage}.json):EMAIL.CONFIG.PORT}
+    EMAIL_CONFIG_REQUIRETLS: ${file(./config/config.${self:provider.stage}.json):EMAIL.CONFIG.REQUIRETLS}
+    EMAIL_CONFIG_USER: ${file(./config/config.${self:provider.stage}.json):EMAIL.CONFIG.AUTH.USER}
+    EMAIL_CONFIG_PASS: ${file(./config/config.${self:provider.stage}.json):EMAIL.CONFIG.AUTH.PASS}
+    EMAIL_CONFIG_LOGGER: ${file(./config/config.${self:provider.stage}.json):EMAIL.CONFIG.LOGGER}
+    EMAIL_CONFIG_DEBUG: ${file(./config/config.${self:provider.stage}.json):EMAIL.CONFIG.DEBUG}
+    EMAIL_CONFIG_RECEIVER: ${file(./config/config.${self:provider.stage}.json):EMAIL.CONFIG.RECEIVER}
+
+    PATH_REPORT_CSV_TMP: ${file(./config/config.${self:provider.stage}.json):PROYECT_BODY.PATH.TMP}
+
+    BUCKET_CONFIG_S3FORCEPATHSTYLE: ${file(./config/config.${self:provider.stage}.json):BUCKET_S3_LOCAL.CONFIG.S3FORCEPATHSTYLE}
+    BUCKET_CONFIG_ACCESSKEYID: ${file(./config/config.${self:provider.stage}.json):BUCKET_S3_LOCAL.CONFIG.ACCESSKEYID}
+    BUCKET_CONFIG_SECRETACCESSKEY: ${file(./config/config.${self:provider.stage}.json):BUCKET_S3_LOCAL.CONFIG.SECRETACCESSKEY}
+    BUCKET_CONFIG_ENDPOINT: ${file(./config/config.${self:provider.stage}.json):BUCKET_S3_LOCAL.CONFIG.ENDPOINT}
+    BUCKET_CONFIG_PORT: ${file(./config/config.${self:provider.stage}.json):BUCKET_S3_LOCAL.CONFIG.PORT}
+    BUCKET_CONFIG_PROTOCOL: ${file(./config/config.${self:provider.stage}.json):BUCKET_S3_LOCAL.CONFIG.PROTOCOL}
+    BUCKET_CONFIG_DIRECTORY: ${file(./config/config.${self:provider.stage}.json):BUCKET_S3_LOCAL.CONFIG.DIRECTORY}
+
+    BUCKET_LIQ_PROC_1: ${file(./config/config.${self:provider.stage}.json):BUCKET_S3_LOCAL.PROJECT.LIQUIDACION.PROCESO_1.NOMBRE}
+    BUCKET_LIQ_PROC_2: ${file(./config/config.${self:provider.stage}.json):BUCKET_S3_LOCAL.PROJECT.LIQUIDACION.PROCESO_2.NOMBRE}
+    BUCKET_LIQ_PROC_3: ${file(./config/config.${self:provider.stage}.json):BUCKET_S3_LOCAL.PROJECT.LIQUIDACION.PROCESO_3.NOMBRE}
+    BUCKET_LIQ_PROC_SOPORTE: ${file(./config/config.${self:provider.stage}.json):BUCKET_S3_LOCAL.PROJECT.LIQUIDACION.PROCESO_SOPORTE.NOMBRE}
+
+    N_PENDIENTES_LIQUIDACION_FILE: ${file(./config/config.${self:provider.stage}.json):PROCESO_1.PATH.PENDIENTES_LIQUIDACION.NOMBRE}
+    N_SIN_CATEGORIA_FILE: ${file(./config/config.${self:provider.stage}.json):PROCESO_1.PATH.SIN_CATEGORIA.NOMBRE}
+    
+    N_PENDIENTES_LIQUIDAR_FILE: ${file(./config/config.${self:provider.stage}.json):PROCESO_3.PATH.PENDIENTESLIQUIDAR.NOMBRE}
+    N_SALES_FILE: ${file(./config/config.${self:provider.stage}.json):PROCESO_3.PATH.SALES.NOMBRE}
+    N_SELLERS_FILE: ${file(./config/config.${self:provider.stage}.json):PROCESO_3.PATH.SELLERS.NOMBRE}
+
+  apiKeys:
+    - ${file(./config/config.${self:provider.stage}.json):API_KEY}
+
+functions:
+
+  authorizerToken:
+    handler: lambdas/authorizer/handler.generico
+
+  login:
+    description: Autenticación de usuario.
+    handler: lambdas/login/handler.generico
+    events:
+      - http:
+          path: /api/${self:custom.v_login}/auth
+          method: POST
+          # private: true
+
+  get_finance_initial_pending_liquidation_report:
+    description: API que genera reporte de folios pendientes para liquidar.
+    handler: lambdas/proceso_1/report_pending_folios/handler.generico
+    reservedConcurrency: 5
+    events:
+      - http:
+          path: /api/${self:custom.v_get_initial_pending_liquidation_report}/get_initial_pending_liquidation_report
+          method: POST
+          private: true
+          cors:
+            origin:
+              - "*"
+            headers:
+              - X-Api-Key
+          caching: # DESHABILITAR TIEMPO DE SEGURIDAD CACHÉ
+            enabled: false
+
+  get_finance_initial_without_category_report:
+    description: API que genera reporte de folios sin categoria.
+    handler: lambdas/proceso_1/report_without_category/handler.generico
+    reservedConcurrency: 5
+    events:
+      - http:
+          path: /api/${self:custom.v_get_initial_without_category_report}/get_initial_without_category_report
+          method: POST
+          private: true
+          cors:
+            origin:
+              - "*"
+            headers:
+              - X-Api-Key
+          caching: # DESHABILITAR TIEMPO DE SEGURIDAD CACHÉ
+            enabled: false
+          # authorizer:
+          #   name: authorizerToken
+          #   type: request
+          #   identitySource: method.request.header.X-Amz-Security-Token
+
+  get_finance_initial_update_international_sales:
+    description: API que actualiza los folios que corresponden a ventas internacionales.
+    handler: lambdas/proceso_1/update_international_sales/handler.generico
+    reservedConcurrency: 5
+    events:
+      - http:
+          path: /api/${self:custom.v_get_initial_update_international_sales}/get_initial_update_international_sales
+          method: POST
+          private: true
+          cors:
+            origin:
+              - "*"
+            headers:
+              - X-Api-Key
+          caching: # DESHABILITAR TIEMPO DE SEGURIDAD CACHÉ
+            enabled: false
+
+  format_document:
+    description: API para formatear el documento antes de enviarlo para el proceso 2.
+    handler: lambdas/support/format_ducument/handler.generico
+    events:
+      - http:
+          path: /api/${self:custom.v_format_document}/format_document
+          method: POST
+          private: true
+          cors:
+            origin:
+              - "*"
+            headers:
+              - X-Api-Key
+          caching: # DESHABILITAR TIEMPO DE SEGURIDAD CACHÉ
+            enabled: false
+
+  update_excel:
+    description: API para actualizar folios de acuerdo al excel cargado.
+    handler: lambdas/proceso_2/update_excel/handler.generico
+    events:
+      - http:
+          path: /api/${self:custom.v_update_excel}/update_excel
+          method: POST
+          private: true
+          cors:
+            origin:
+              - "*"
+            headers:
+              - X-Api-Key
+          caching: # DESHABILITAR TIEMPO DE SEGURIDAD CACHÉ
+            enabled: false
+
+  get_finance_final_pending_liquidation_report:
+    description: API para generar reportes finales.
+    handler: lambdas/proceso_3/report_pending_liquidation/handler.generico
+    events:
+      - http:
+          path: /api/${self:custom.v_get_final_pending_liquidation_report}/get_final_pending_liquidation_report
+          method: POST
+          private: true
+          cors:
+            origin:
+              - "*"
+            headers:
+              - X-Api-Key
+          caching: # DESHABILITAR TIEMPO DE SEGURIDAD CACHÉ.
+            enabled: false
+
+  get_finance_final_sellers_report:
+    description: API para generar reportes finales.
+    handler: lambdas/proceso_3/report_sellers/handler.generico
+    events:
+      - http:
+          path: /api/${self:custom.v_get_final_sellers_report}/get_final_sellers_report
+          method: POST
+          private: true
+          cors:
+            origin:
+              - "*"
+            headers:
+              - X-Api-Key
+          caching: # DESHABILITAR TIEMPO DE SEGURIDAD CACHÉ.
+            enabled: false
+
+  get_finance_final_sales_report:
+    description: API para generar reportes finales.
+    handler: lambdas/proceso_3/report_sales/handler.generico
+    events:
+      - http:
+          path: /api/${self:custom.v_get_final_sales_report}/get_final_sales_report
+          method: POST
+          private: true
+          cors:
+            origin:
+              - "*"
+            headers:
+              - X-Api-Key
+          caching: # DESHABILITAR TIEMPO DE SEGURIDAD CACHÉ.
+            enabled: false
+
+  updateSkus:
+    description: API para actualizar tabla skus de finanzas.
+    handler: lambdas/update/handler.generico
+    events:
+      - http:
+          path: /api/${self:custom.v_update_sku}/update_skus
+          method: GET
+          private: true
+          cors:
+            origin:
+              - "*"
+            headers:
+              - X-Api-Key
+          caching: # DESHABILITAR TIEMPO DE SEGURIDAD CACHÉ.
+            enabled: false
+
+  add_folio:
+    description: Endpoint que agrega folios en el proceso de soporte de la liquidación.
+    handler: lambdas/support/add_folio/handler.generico
+    events:
+      - http:
+          path: /api/${self:custom.v_add_folio}/add_folio
+          method: POST
+          private: true
+          cors:
+            origin:
+              - "*"
+            headers:
+              - X-Api-Key
+          caching: # DESHABILITAR TIEMPO DE SEGURIDAD CACHÉ
+            enabled: false
+
+  cancel_folio:
+    description: Endpoint que cancela folios en el proceso de soporte de la liquidación.
+    handler: lambdas/support/cancel_folio/handler.generico
+    events:
+      - http:
+          path: /api/${self:custom.v_cancel_folio}/cancel_folio
+          method: POST
+          private: true
+          cors:
+            origin:
+              - "*"
+            headers:
+              - X-Api-Key
+          caching: # DESHABILITAR TIEMPO DE SEGURIDAD CACHÉ
+            enabled: false
+
+  negative_folio:
+    description: Endpoint que agrega folios negativos en el proceso de soporte de la liquidación.
+    handler: lambdas/support/negative_folio/handler.generico
+    events:
+      - http:
+          path: /api/${self:custom.v_negative_folio}/negative_folio
+          method: POST
+          private: true
+          cors:
+            origin:
+              - "*"
+            headers:
+              - X-Api-Key
+          caching: # DESHABILITAR TIEMPO DE SEGURIDAD CACHÉ
+            enabled: false
+
+  create_script:
+    description: Endpoint que genera script para crear reporte de existencia de folios.
+    handler: lambdas/support/create_script/handler.generico
+    events:
+      - http:
+          path: /api/${self:custom.v_create_script}/create_script
+          method: POST
+          private: true
+          cors:
+            origin:
+              - "*"
+            headers:
+              - X-Api-Key
+          caching: # DESHABILITAR TIEMPO DE SEGURIDAD CACHÉ
+            enabled: false
+
+resources:
+  Resources:
+    BucketsS3_Liq_Proc_1:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: ${file(./config/config.${self:provider.stage}.json):BUCKET_S3_LOCAL.PROJECT.LIQUIDACION.PROCESO_1.NOMBRE}
+    BucketsS3_Liq_Proc_2:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: ${file(./config/config.${self:provider.stage}.json):BUCKET_S3_LOCAL.PROJECT.LIQUIDACION.PROCESO_2.NOMBRE}
+    BucketsS3_Liq_Proc_3:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: ${file(./config/config.${self:provider.stage}.json):BUCKET_S3_LOCAL.PROJECT.LIQUIDACION.PROCESO_3.NOMBRE}
+    BucketsS3_Liq_Proc_Soporte:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: ${file(./config/config.${self:provider.stage}.json):BUCKET_S3_LOCAL.PROJECT.LIQUIDACION.PROCESO_SOPORTE.NOMBRE}

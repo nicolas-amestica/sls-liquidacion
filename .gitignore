@@ -1,0 +1,11 @@
+# package directories
+node_modules
+jspm_packages
+
+# Serverless directories
+.serverless
+
+/config/config.local.json
+/config/config.dev.json
+/config/config.qa.json
+/config/config.prod.json
