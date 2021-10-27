@@ -1,6 +1,12 @@
 # package directories
-node_modules
 jspm_packages
+node_modules/
+tmp/
+dist
+.vscode/
+vscode/
+
+.DS_Store
 
 # Serverless directories
 .serverless
@@ -9,3 +15,4 @@ jspm_packages
 /config/config.dev.json
 /config/config.qa.json
 /config/config.prod.json
+
